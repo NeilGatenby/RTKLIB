@@ -3292,12 +3292,13 @@ extern int expath(const char *path, char *paths[], int nmax)
     }
     if ((h=FindFirstFile((LPCTSTR)path,&file))==INVALID_HANDLE_VALUE) {
         strcpy(paths[0],path);
+        trace(1, "expath  : path=%s nmax=%d FindFirstFile error(%d)\n", path, nmax, GetLastError());
         return 1;
     }
-    sprintf(paths[n++],"%s%ws",dir,file.cFileName);
+    sprintf(paths[n++],"%s%s",dir,file.cFileName);
     while (FindNextFile(h,&file)&&n<nmax) {
         if (file.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) continue;
-        sprintf(paths[n++],"%s%ws",dir,file.cFileName);
+        sprintf(paths[n++],"%s%s",dir,file.cFileName);
     }
     FindClose(h);
 #else
