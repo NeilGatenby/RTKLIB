@@ -49,6 +49,8 @@
 extern "C" {
 #endif
 
+typedef void(__stdcall* ProgressCallback)(int);
+
 #ifdef WIN_DLL
 #define EXPORT __declspec(dllexport) /* for Windows DLL */
 #else
@@ -524,14 +526,14 @@ extern "C" {
 #define thread_t    HANDLE
 #define lock_t      CRITICAL_SECTION
 #define initlock(f) InitializeCriticalSection(f)
-#define lock(f)     EnterCriticalSection(f)
+#define rtklock(f)  EnterCriticalSection(f)
 #define unlock(f)   LeaveCriticalSection(f)
 #define FILEPATHSEP '\\'
 #else
 #define thread_t    pthread_t
 #define lock_t      pthread_mutex_t
 #define initlock(f) pthread_mutex_init(f,NULL)
-#define lock(f)     pthread_mutex_lock(f)
+#define rtklock(f)  pthread_mutex_lock(f)
 #define unlock(f)   pthread_mutex_unlock(f)
 #define FILEPATHSEP '/'
 #endif
@@ -1047,6 +1049,7 @@ typedef struct {        /* processing options type */
     double odisp[2][6*11]; /* ocean tide loading parameters {rov,base} */
     int freqopt;        /* disable L2-AR */
     char pppopt[256];   /* ppp option */
+    ProgressCallback progressFunc;
 } prcopt_t;
 
 typedef struct {        /* solution options type */

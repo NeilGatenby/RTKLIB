@@ -246,9 +246,20 @@ static int inputobs(obsd_t *obs, int solq, const prcopt_t *popt)
     
     trace(3,"\ninfunc  : revs=%d iobsu=%d iobsr=%d isbs=%d\n",revs,iobsu,iobsr,isbs);
     
-    if (0<=iobsu&&iobsu<obss.n) {
+    if (iobsu > -1 && iobsu < obss.n)
+    {
         settime((time=obss.data[iobsu].time));
-        if (checkbrk("processing : %s Q=%d",time_str(time,0),solq)) {
+        if (popt->mode==PMODE_KINEMA)
+        {
+            // Assuming combined progress - first forwards, then reverse ....
+            popt->progressFunc(revs ? (100 - (50 * iobsu) / obss.n) : (50 * iobsu) / obss.n);
+        }
+        else
+        {
+            popt->progressFunc((100 * iobsu) / obss.n);
+        }
+        if (checkbrk(""/*"processing : %s Q=%d, Progress = %.2f %%", time_str(time, 0), solq, (popt->soltype > 1 ? 50.0 : 100.0) * iobsu / obss.n*/))
+        {
             aborts=1; showmsg("aborted"); return -1;
         }
     }
@@ -405,8 +416,8 @@ static void procpos(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
     
     rtcm_path[0]='\0';
     
-    while ((nobs=inputobs(obs_ptr,rtk->sol.stat,popt))>=0) {
-        
+    while ((nobs=inputobs(obs_ptr,rtk->sol.stat,popt))>=0)
+    {
         /* exclude satellites */
         for (i=n=0;i<nobs;i++) {
             if ((satsys(obs_ptr[i].sat,NULL)&popt->navsys)&&

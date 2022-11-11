@@ -3038,7 +3038,7 @@ static void traceswap(void)
     gtime_t time=utc2gpst(timeget());
     char path[1024];
     
-    lock(&lock_trace);
+    rtklock(&lock_trace);
     
     if ((int)(time2gpst(time      ,NULL)/INT_SWAP_TRAC)==
         (int)(time2gpst(time_trace,NULL)/INT_SWAP_TRAC)) {
@@ -3341,47 +3341,66 @@ extern int expath(const char *path, char *paths[], int nmax)
     
     return n;
 }
-/* generate local directory recursively --------------------------------------*/
-static int mkdir_r(const char *dir)
-{
-    char pdir[1024],*p;
 
-#ifdef WIN32
-    HANDLE h;
-    WIN32_FIND_DATA data;
-    
-    if (!*dir||!strcmp(dir+1,":\\")) return 1;
-    
-    sprintf(pdir,"%.1023s",dir);
-    if ((p=strrchr(pdir,FILEPATHSEP))) {
-        *p='\0';
-        h=FindFirstFile(pdir,&data);
-        if (h==INVALID_HANDLE_VALUE) {
-            if (!mkdir_r(pdir)) return 0;
+/* generate local directory recursively --------------------------------------*/
+static int mkdir_r(const char* dirname)
+{
+    // kudos to https://nachtimwald.com/2019/07/10/recursive-create-directory-in-c-revisited/ for this
+    const char* p;
+    char* temp = calloc(1, strlen(dirname) + 1);
+    if (temp)
+    {
+        /* Skip Windows drive letter. */
+#ifdef _WIN32
+        if ((p = strchr(dirname, ':')) != NULL)
+        {
+            p += 2; // skip ":\" in (e.g., "F:\example\")
         }
-        else FindClose(h);
+        else {
+#endif
+            p = dirname;
+#ifdef _WIN32
+        }
+#endif
+
+        while ((p = strchr(p, FILEPATHSEP)) != NULL) {
+            /* Skip empty elements. Could be a Windows UNC path or
+               just multiple separators which is okay. */
+            if (p != dirname && *(p - 1) == FILEPATHSEP) {
+                p++;
+                continue;
+            }
+            /* Put the path up to this point into a temporary to
+               pass to the make directory function. */
+            memcpy(temp, dirname, p - dirname);
+            temp[p - dirname] = '\0';
+            p++;
+#ifdef _WIN32
+            if (CreateDirectoryA(temp, NULL) == FALSE) {
+                if (GetLastError() != ERROR_ALREADY_EXISTS) {
+                    trace(2, "directory generation error: dir=%s\n", dirname);
+                    return 0;
     }
-    if (CreateDirectory(dir,NULL)||GetLastError()==ERROR_ALREADY_EXISTS) {
-        return 1;
     }
 #else
-    FILE *fp;
-    
-    if (!*dir) return 1;
-    
-    sprintf(pdir,"%.1023s",dir);
-    if ((p=strrchr(pdir,FILEPATHSEP))) {
-        *p='\0';
-        if (!(fp=fopen(pdir,"r"))) {
-            if (!mkdir_r(pdir)) return 0;
+            if (mkdir(temp, 0774) != 0) {
+                if (errno != EEXIST) {
+                    trace(2, "directory generation error: dir=%s\n", dirname);
+                    return 0;
         }
-        else fclose(fp);
     }
-    if (!mkdir(dir,0777)||errno==EEXIST) return 1;
 #endif
-    trace(2,"directory generation error: dir=%s\n",dir);
+        }
+        free(temp);
+        return 1;
+    }
+    else
+    {
+        trace(2, "directory generation error: dir=%s\n", dirname);
     return 0;
 }
+}
+ 
 /* create directory ------------------------------------------------------------
 * create directory if not exists
 * args   : char   *path     I   file path to be saved
@@ -3396,7 +3415,7 @@ extern void createdir(const char *path)
     
     strcpy(buff,path);
     if (!(p=strrchr(buff,FILEPATHSEP))) return;
-    *p='\0';
+    *(p+1)='\0';//+1for"F:\example\"ratherthan"F:\example"
     
     mkdir_r(buff);
 }

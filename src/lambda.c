@@ -159,8 +159,8 @@ static int search(int n, int m, const double *L, const double *D,
     }
     free(S); free(dist); free(zb); free(z); free(step);
     
-    if (c>=LOOPMAX) {
-        fprintf(stderr,"%s : search loop count overflow\n",__FILE__);
+    if (c>LOOPMAX) {
+        fprintf(stderr,"%s : search loop count overflow (%d)\n",__FILE__, c);
         return -2;
     }
     return 0;
